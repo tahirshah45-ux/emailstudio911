@@ -2,78 +2,91 @@
 
 Enterprise client communication and project documentation platform. Every important client communication is created, sent, and recorded here — making requirements, approvals, scope changes, and confirmations professional, documented, traceable, and defensible across the entire project lifecycle.
 
-Built with Next.js 14 (App Router), TypeScript, Tailwind CSS, TipTap, Framer Motion, and Nodemailer.
+Built with Next.js 14 (App Router), TypeScript, Tailwind CSS, TipTap, Framer Motion, Nodemailer, and **Firebase Firestore**.
 
 ## Quick start
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in SMTP credentials (only needed for sending)
+cp .env.example .env.local   # SMTP credentials (only needed for sending)
 npm run dev                  # http://localhost:3000
 ```
 
-Production build: `npm run build && npm start`.
+Production: `npm run build && npm start`.
+
+Firestore works out of the box — the app is preconfigured for the `client-communication-center` Firebase project, database `emailsystem911makers`. Make sure that database exists and its security rules permit access.
 
 ## The workflow
 
 1. **Projects** (home page): create a project — it gets an auto reference number (`911M-YYYY-NNN`), starts at the *Scope Confirmation* stage, and its timeline begins.
-2. **New Communication**: from the project page, pick a template (Scope Confirmation, Requirements Collection, Information Request, Missing Asset Request, Change Request, Design Approval, Development Update, QA Report, Client Review, Project Handoff, Final Acceptance, General) and the composer opens pre-filled with the project's client details and reference.
-3. **Compose**: edit content in the rich text editor (headings, lists, checklists, tables, links, images). The live preview updates automatically. No HTML editing, ever.
-4. **Send**: the communication is saved first, then sent via SMTP, then recorded — `Sent to … ` appears in the project timeline. If the email contains a confirmation block, approval status automatically becomes *Approval Requested*.
-5. **Record decisions**: when the client responds, record *Approved*, *Needs Revision*, or *Rejected* on the communication (with an optional note like "Confirmed by client reply on …"). Each decision becomes a permanent timeline event.
-6. **Advance the stage** as the project moves (Scope Confirmation → Requirements Collection → Development → Design Review → QA Review → Delivery → Client Acceptance → Closed), add manual notes for anything that happened outside the system, and **close** the project when accepted. The record stays.
+2. **New Communication**: from the project page, pick a template (12 built in) — the composer opens pre-filled with the project's client details and reference.
+3. **Compose**: rich text editor (headings, lists, checklists, tables, links, images) with auto-updating live preview. No HTML editing, ever.
+4. **Send**: the communication is saved first, then sent via SMTP, then recorded in the project timeline. Emails with a confirmation block automatically become *Approval Requested*.
+5. **Record decisions**: *Approved* / *Needs Revision* / *Rejected* with notes. Each decision writes an immutable audit record (who, when, what, why) to the `approvals` collection AND a timeline event.
+6. **Checklists**: add reusable checklists per project (Pages, Features, Forms, Branding, Assets, Timeline, Deliverables, Approval Items, or custom). Completion is stored in Firestore and logged to the timeline.
+7. **Advance the stage** (Scope Confirmation → Requirements Collection → Development → Design Review → QA Review → Delivery → Client Acceptance → Closed), add manual notes, and close the project when accepted. The record stays.
 
 The timeline is append-only. Nothing is lost.
 
-## Architecture (modular by design)
+## Storage — Firebase Firestore
 
-| Layer | Location | Notes |
-|---|---|---|
-| Business logic | `src/lib/domain/` | Project stages, approval lifecycle, event taxonomy — pure TS, no UI/storage |
-| Brand engine | `src/lib/brand.ts` | Palette extracted from the 911 Makers logo; single source of truth |
-| Template engine | `src/lib/templates.ts` | 12 reusable templates; only content changes, branding never does |
-| Email generation | `src/lib/email/generator.ts` | Branded document frame — table layout, inline CSS, 640px, email-client safe |
-| Content transform | `src/lib/email/transform.ts` | Editor HTML → email-safe inline-styled HTML |
-| Storage | `src/lib/store/jsonStore.ts` | The ONLY module touching disk; swap here for a database |
-| Event log | `src/lib/store/events.ts` | Append-only project timeline |
-| SMTP | `src/app/api/send/route.ts` | Gmail / Microsoft / custom presets, env-driven |
-| Preview engine | `src/components/dashboard/PreviewPane.tsx` | Sandboxed iframe, desktop + mobile |
-| API | `src/app/api/` | Projects, communications, approvals, events, clients, send |
-| UI | `src/app/`, `src/components/` | Projects dashboard, project detail + timeline, composer |
+Firestore is the **only source of truth for production data**. Collections:
 
-Future modules (proposals, quotations, invoices, contracts, client portal, PDF, signatures, CRM) plug in as new document types + API routes: the domain layer, brand engine, template engine, and event log are already generic. None are implemented now, by design.
+| Collection | Contents |
+|---|---|
+| `clients` | Client database |
+| `projects` | Projects (stage, status, reference, client link) |
+| `communications` | Emails/documents incl. version history, approval status, send record |
+| `timeline_events` | Append-only project history |
+| `approvals` | Immutable approval audit records (user, date, note, communication ref) |
+| `checklists` | Per-project checklists with completion state |
+| `settings` | Application settings (sender identity), doc id `main` |
 
-## Approval statuses
+The storage layer is modular: business logic and API routes depend only on the `Repository` interface (`src/lib/store/repository.ts`). Drivers:
 
-`Pending` → `Approval Requested` (set automatically on send when a confirmation block exists) → `Approved` / `Rejected` / `Needs Revision`. Every transition is written to the project timeline with a timestamp and optional note.
+- **`firestoreRepo`** — production default (Firebase Web SDK, named database `emailsystem911makers`).
+- **`jsonRepo`** — local JSON files, used ONLY for offline development/CI (`STORAGE_DRIVER=json`). Never used in production.
+
+Adding another backend later (Postgres, KV, …) means implementing one interface — no business logic changes.
+
+## Settings (sender identity)
+
+The **Settings** page lets administrators change the Sender Name, Sender Email, and Reply-To for all outgoing email — stored in Firestore, no code changes. SMTP transport credentials stay in environment variables only and are never written to the database.
 
 ## SMTP configuration
 
-Set in `.env.local` (never committed):
+Set in `.env.local` / Vercel environment variables:
 
 | Variable | Purpose |
 |---|---|
 | `SMTP_PROVIDER` | `gmail`, `microsoft`, or `custom` |
 | `SMTP_USER` / `SMTP_PASS` | Login credentials (Gmail requires an App Password) |
-| `SMTP_FROM_NAME` / `SMTP_FROM_EMAIL` | Sender identity clients see |
+| `SMTP_FROM_NAME` / `SMTP_FROM_EMAIL` / `SMTP_REPLY_TO` | Fallback sender identity (Settings page takes precedence) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | Only for `custom` provider |
 
-Credentials are read server-side only — they never reach the browser.
+## Architecture
 
-## Data storage
+```
+src/lib/domain/        Project lifecycle, approval statuses, event taxonomy (pure business logic)
+src/lib/brand.ts       Brand engine — palette from the 911 Makers logo, single source of truth
+src/lib/templates.ts   Template engine — 12 reusable templates, branding never changes
+src/lib/email/         Email generator + editor-HTML → email-HTML transformer
+src/lib/store/         Repository interface + Firestore/JSON drivers + append-only event log
+src/lib/firebase.ts    Firebase app + named Firestore database initialization
+src/app/api/           REST API: projects, communications, approvals, checklists, settings, clients, send
+src/components/        Projects dashboard, project detail (timeline/checklists), composer, settings
+```
 
-Records live in JSON files under `DATA_DIR` (default `./data`): `projects.json`, `emails.json`, `events.json`, `clients.json`. Every save appends a version snapshot (capped at 25 per communication); the event log is append-only.
-
-**Vercel note:** Vercel's serverless filesystem is ephemeral — the app deploys and runs there (generate/copy/export/send work), but saved records will not persist. For persistent storage host on a VPS/Docker, or replace `jsonStore.ts` with Vercel Postgres/KV — it is the only module that touches disk.
+Future modules (proposals, quotations, invoices, contracts, client portal, PDF, digital signatures, CRM) plug in as new document types + API routes on top of the same repository, brand engine, and event log.
 
 ## Deploying to Vercel
 
-1. Push this folder to a Git repository and import it in Vercel.
-2. Add the SMTP environment variables in Project Settings → Environment Variables.
-3. Deploy. (See storage note above.)
+1. Push to GitHub and import the repo in Vercel.
+2. Add the SMTP environment variables (Firestore config is built in; override with `NEXT_PUBLIC_FIREBASE_*` only if the Firebase project changes).
+3. Deploy. All data lives in Firestore, so serverless statelessness is not a problem.
 
-## Design notes
+## Notes
 
-- Emails are official project documents: black header with the text-rendered logo (renders even when images are blocked), document details card (client, company, project, reference, date, version, status pill), content, optional confirmation block, signature, and a legal documentation footer.
-- Editor → email mapping: H2 = section heading, H3 = small-caps label, quote = gold-edged info card, checklist = branded checkbox card, bullets = gold square markers.
-- Images must be publicly hosted URLs — email clients cannot load local files.
+- Version history per communication is capped at 10 snapshots (Firestore 1 MB document limit).
+- Images in emails must be publicly hosted URLs — email clients cannot load local files.
+- The email logo is text-rendered (gold "911" + white "MAKERS") so it displays even when images are blocked.

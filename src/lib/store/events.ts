@@ -1,9 +1,10 @@
 import type { TimelineEvent, TimelineEventType } from "@/lib/types";
-import { readCollection, writeCollection } from "./jsonStore";
+import { COLLECTIONS, newId, repo } from "./index";
 
 /**
  * Timeline event log — the immutable project communication history.
  * Events are append-only; nothing in the UI deletes them.
+ * Stored in the `timeline_events` collection.
  */
 
 export async function addEvent(
@@ -13,20 +14,18 @@ export async function addEvent(
   communicationId: string | null = null
 ): Promise<TimelineEvent> {
   const event: TimelineEvent = {
-    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
+    id: newId(),
     projectId,
     communicationId,
     type,
     description,
     at: new Date().toISOString(),
   };
-  const events = await readCollection<TimelineEvent>("events");
-  events.push(event);
-  await writeCollection("events", events);
+  await repo.set(COLLECTIONS.events, event.id, event);
   return event;
 }
 
 export async function eventsForProject(projectId: string): Promise<TimelineEvent[]> {
-  const events = await readCollection<TimelineEvent>("events");
+  const events = await repo.list<TimelineEvent>(COLLECTIONS.events);
   return events.filter((e) => e.projectId === projectId).sort((a, b) => b.at.localeCompare(a.at));
 }

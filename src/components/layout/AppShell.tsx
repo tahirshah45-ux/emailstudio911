@@ -47,6 +47,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 Composer
               </Button>
             </Link>
+            <Link href="/settings">
+              <Button variant="ghost" size="sm">
+                Settings
+              </Button>
+            </Link>
           </nav>
         </div>
         <Button variant="ghost" size="icon" onClick={toggleTheme} title="Toggle dark mode">

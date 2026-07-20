@@ -48,6 +48,8 @@ export const EVENT_LABELS: Record<TimelineEventType, string> = {
   approval_rejected: "Rejected",
   approval_revision: "Revision Requested",
   note: "Note",
+  checklist_added: "Checklist Added",
+  checklist_completed: "Checklist Completed",
   project_closed: "Project Closed",
   project_reopened: "Project Reopened",
 };
@@ -63,6 +65,8 @@ export const EVENT_COLORS: Record<TimelineEventType, string> = {
   approval_rejected: "bg-red-500",
   approval_revision: "bg-orange-500",
   note: "bg-neutral-300 dark:bg-neutral-600",
+  checklist_added: "bg-brand-gold/70",
+  checklist_completed: "bg-green-500",
   project_closed: "bg-neutral-700",
   project_reopened: "bg-blue-400",
 };

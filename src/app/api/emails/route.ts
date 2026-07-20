@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addEvent } from "@/lib/store/events";
-import { readCollection, writeCollection } from "@/lib/store/jsonStore";
+import { COLLECTIONS, newId, repo } from "@/lib/store";
 import type { EmailDocument, EmailFields } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.toLowerCase().trim() ?? "";
   const projectId = req.nextUrl.searchParams.get("projectId");
-  let emails = await readCollection<EmailDocument>("emails");
+  let emails = await repo.list<EmailDocument>(COLLECTIONS.communications);
   if (projectId) emails = emails.filter((e) => e.projectId === projectId);
   if (q) {
     emails = emails.filter((e) =>
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       approvalStatus: rest.approvalStatus ?? "none",
       sentAt: rest.sentAt ?? null,
       sentTo: rest.sentTo ?? null,
-      historyCount: history.length,
+      historyCount: history?.length ?? 0,
     }))
   );
 }
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
   const doc: EmailDocument = {
     ...fields,
-    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
+    id: newId(),
     createdAt: now,
     updatedAt: now,
     history: [{ version: 1, savedAt: now, fields }],
@@ -46,9 +46,7 @@ export async function POST(req: NextRequest) {
     sentAt: null,
     sentTo: null,
   };
-  const emails = await readCollection<EmailDocument>("emails");
-  emails.push(doc);
-  await writeCollection("emails", emails);
+  await repo.set(COLLECTIONS.communications, doc.id, doc);
 
   if (doc.projectId) {
     await addEvent(doc.projectId, "email_drafted", `Draft created: "${doc.subject || doc.documentTitle}".`, doc.id);

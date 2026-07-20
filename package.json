@@ -1,8 +1,8 @@
 {
-  "name": "911-makers-email-studio",
-  "version": "1.0.0",
+  "name": "911-makers-communication-center",
+  "version": "2.0.0",
   "private": true,
-  "description": "911 Makers Client Email Studio — internal tool for generating, previewing, and sending branded client emails.",
+  "description": "911 Makers Client Communication Center — enterprise client communication & project documentation platform.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -24,6 +24,7 @@
     "@tiptap/starter-kit": "^2.6.6",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "firebase": "^10.13.0",
     "framer-motion": "^11.5.4",
     "lucide-react": "^0.441.0",
     "next": "14.2.15",

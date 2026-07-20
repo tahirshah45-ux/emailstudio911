@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readCollection, writeCollection } from "@/lib/store/jsonStore";
+import { COLLECTIONS, newId, repo } from "@/lib/store";
 import type { Client } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const clients = await readCollection<Client>("clients");
+  const clients = await repo.list<Client>(COLLECTIONS.clients);
   return NextResponse.json(clients.sort((a, b) => a.name.localeCompare(b.name)));
 }
 
@@ -16,15 +16,13 @@ export async function POST(req: NextRequest) {
   }
   const now = new Date().toISOString();
   const client: Client = {
-    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
+    id: newId(),
     name: body.name.trim(),
     company: body.company?.trim() ?? "",
     email: body.email?.trim() ?? "",
     createdAt: now,
     updatedAt: now,
   };
-  const clients = await readCollection<Client>("clients");
-  clients.push(client);
-  await writeCollection("clients", clients);
+  await repo.set(COLLECTIONS.clients, client.id, client);
   return NextResponse.json(client, { status: 201 });
 }

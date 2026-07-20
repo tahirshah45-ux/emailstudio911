@@ -1,5 +1,8 @@
 import type {
   ApprovalStatus,
+  AppSettings,
+  Checklist,
+  ChecklistItem,
   Client,
   EmailDocument,
   EmailFields,
@@ -31,6 +34,7 @@ export interface ProjectBundle {
   project: Project;
   events: TimelineEvent[];
   communications: EmailListItem[];
+  checklists: Checklist[];
 }
 
 export const api = {
@@ -53,6 +57,23 @@ export const api = {
         body: JSON.stringify({ description }),
       }),
     remove: (id: string) => request<{ ok: true }>(`/api/projects/${id}`, { method: "DELETE" }),
+  },
+  checklists: {
+    listForProject: (projectId: string) =>
+      request<Checklist[]>(`/api/projects/${projectId}/checklists`),
+    create: (projectId: string, name: string, items: string[]) =>
+      request<Checklist>(`/api/projects/${projectId}/checklists`, {
+        method: "POST",
+        body: JSON.stringify({ name, items }),
+      }),
+    update: (id: string, patch: { name?: string; items?: ChecklistItem[] }) =>
+      request<Checklist>(`/api/checklists/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+    remove: (id: string) => request<{ ok: true }>(`/api/checklists/${id}`, { method: "DELETE" }),
+  },
+  settings: {
+    get: () => request<AppSettings>("/api/settings"),
+    update: (patch: Partial<AppSettings>) =>
+      request<AppSettings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
   },
   emails: {
     list: (opts?: { q?: string; projectId?: string }) => {

@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readCollection, writeCollection } from "@/lib/store/jsonStore";
+import { COLLECTIONS, repo } from "@/lib/store";
 import type { EmailDocument, EmailFields } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const MAX_HISTORY = 25;
+/**
+ * Version history cap. Kept conservative because Firestore documents are
+ * limited to 1 MB and each snapshot includes the full rich-text content.
+ */
+const MAX_HISTORY = 10;
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const emails = await readCollection<EmailDocument>("emails");
-  const doc = emails.find((e) => e.id === params.id);
+  const doc = await repo.get<EmailDocument>(COLLECTIONS.communications, params.id);
   if (!doc) return NextResponse.json({ error: "Email not found." }, { status: 404 });
   // Normalize records created before the project/approval fields existed.
   return NextResponse.json({
@@ -17,31 +20,28 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     approvalStatus: doc.approvalStatus ?? "none",
     sentAt: doc.sentAt ?? null,
     sentTo: doc.sentTo ?? null,
+    history: doc.history ?? [],
   });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const fields = (await req.json()) as EmailFields;
-  const emails = await readCollection<EmailDocument>("emails");
-  const idx = emails.findIndex((e) => e.id === params.id);
-  if (idx === -1) return NextResponse.json({ error: "Email not found." }, { status: 404 });
+  const prev = await repo.get<EmailDocument>(COLLECTIONS.communications, params.id);
+  if (!prev) return NextResponse.json({ error: "Email not found." }, { status: 404 });
 
   const now = new Date().toISOString();
-  const prev = emails[idx];
-  const nextVersion = (prev.history[prev.history.length - 1]?.version ?? 0) + 1;
-  const history = [...prev.history, { version: nextVersion, savedAt: now, fields }].slice(-MAX_HISTORY);
+  const prevHistory = prev.history ?? [];
+  const nextVersion = (prevHistory[prevHistory.length - 1]?.version ?? 0) + 1;
+  const history = [...prevHistory, { version: nextVersion, savedAt: now, fields }].slice(-MAX_HISTORY);
 
-  emails[idx] = { ...prev, ...fields, updatedAt: now, history };
-  await writeCollection("emails", emails);
-  return NextResponse.json(emails[idx]);
+  const next: EmailDocument = { ...prev, ...fields, id: prev.id, updatedAt: now, history };
+  await repo.set(COLLECTIONS.communications, next.id, next);
+  return NextResponse.json(next);
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const emails = await readCollection<EmailDocument>("emails");
-  const next = emails.filter((e) => e.id !== params.id);
-  if (next.length === emails.length) {
-    return NextResponse.json({ error: "Email not found." }, { status: 404 });
-  }
-  await writeCollection("emails", next);
+  const doc = await repo.get<EmailDocument>(COLLECTIONS.communications, params.id);
+  if (!doc) return NextResponse.json({ error: "Email not found." }, { status: 404 });
+  await repo.remove(COLLECTIONS.communications, params.id);
   return NextResponse.json({ ok: true });
 }

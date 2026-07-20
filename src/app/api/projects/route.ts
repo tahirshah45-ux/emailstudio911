@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PROJECT_STAGES } from "@/lib/domain/stages";
 import { addEvent } from "@/lib/store/events";
-import { readCollection, writeCollection } from "@/lib/store/jsonStore";
+import { COLLECTIONS, newId, repo } from "@/lib/store";
 import type { EmailDocument, Project } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const [projects, emails] = await Promise.all([
-    readCollection<Project>("projects"),
-    readCollection<EmailDocument>("emails"),
+    repo.list<Project>(COLLECTIONS.projects),
+    repo.list<EmailDocument>(COLLECTIONS.communications),
   ]);
   const withCounts = projects
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -26,13 +26,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Project name is required." }, { status: 400 });
   }
 
-  const projects = await readCollection<Project>("projects");
+  const projects = await repo.list<Project>(COLLECTIONS.projects);
   const year = new Date().getFullYear();
   const seq = projects.filter((p) => p.referenceNumber.includes(`-${year}-`)).length + 1;
   const now = new Date().toISOString();
 
   const project: Project = {
-    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
+    id: newId(),
     name: body.name.trim(),
     description: body.description?.trim() ?? "",
     clientName: body.clientName?.trim() ?? "",
@@ -45,8 +45,7 @@ export async function POST(req: NextRequest) {
     updatedAt: now,
   };
 
-  projects.push(project);
-  await writeCollection("projects", projects);
+  await repo.set(COLLECTIONS.projects, project.id, project);
   await addEvent(project.id, "project_created", `Project "${project.name}" created (${project.referenceNumber}).`);
   return NextResponse.json(project, { status: 201 });
 }

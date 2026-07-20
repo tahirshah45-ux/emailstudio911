@@ -1,35 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addEvent, eventsForProject } from "@/lib/store/events";
-import { readCollection, writeCollection } from "@/lib/store/jsonStore";
-import type { EmailDocument, Project } from "@/lib/types";
+import { COLLECTIONS, repo } from "@/lib/store";
+import type { Checklist, EmailDocument, Project } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const projects = await readCollection<Project>("projects");
-  const project = projects.find((p) => p.id === params.id);
+  const project = await repo.get<Project>(COLLECTIONS.projects, params.id);
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
 
-  const [events, emails] = await Promise.all([
+  const [events, emails, allChecklists] = await Promise.all([
     eventsForProject(project.id),
-    readCollection<EmailDocument>("emails"),
+    repo.list<EmailDocument>(COLLECTIONS.communications),
+    repo.list<Checklist>(COLLECTIONS.checklists),
   ]);
 
   const communications = emails
     .filter((e) => e.projectId === project.id)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .map(({ contentHtml, history, ...rest }) => ({ ...rest, historyCount: history.length }));
+    .map(({ contentHtml, history, ...rest }) => ({
+      ...rest,
+      approvalStatus: rest.approvalStatus ?? "none",
+      sentAt: rest.sentAt ?? null,
+      sentTo: rest.sentTo ?? null,
+      historyCount: history?.length ?? 0,
+    }));
 
-  return NextResponse.json({ project, events, communications });
+  const checklists = allChecklists
+    .filter((c) => c.projectId === project.id)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  return NextResponse.json({ project, events, communications, checklists });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const body = (await req.json()) as Partial<Project>;
-  const projects = await readCollection<Project>("projects");
-  const idx = projects.findIndex((p) => p.id === params.id);
-  if (idx === -1) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  const prev = await repo.get<Project>(COLLECTIONS.projects, params.id);
+  if (!prev) return NextResponse.json({ error: "Project not found." }, { status: 404 });
 
-  const prev = projects[idx];
   const next: Project = {
     ...prev,
     name: body.name?.trim() ?? prev.name,
@@ -41,8 +49,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     status: body.status ?? prev.status,
     updatedAt: new Date().toISOString(),
   };
-  projects[idx] = next;
-  await writeCollection("projects", projects);
+  await repo.set(COLLECTIONS.projects, next.id, next);
 
   if (body.stage && body.stage !== prev.stage) {
     await addEvent(next.id, "stage_changed", `Stage moved: ${prev.stage} → ${next.stage}.`);
@@ -59,11 +66,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const projects = await readCollection<Project>("projects");
-  const next = projects.filter((p) => p.id !== params.id);
-  if (next.length === projects.length) {
-    return NextResponse.json({ error: "Project not found." }, { status: 404 });
-  }
-  await writeCollection("projects", next);
+  const project = await repo.get<Project>(COLLECTIONS.projects, params.id);
+  if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  await repo.remove(COLLECTIONS.projects, params.id);
   return NextResponse.json({ ok: true });
 }

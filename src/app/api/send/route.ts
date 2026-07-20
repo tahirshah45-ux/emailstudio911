@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { addEvent } from "@/lib/store/events";
-import { readCollection, writeCollection } from "@/lib/store/jsonStore";
-import type { EmailDocument } from "@/lib/types";
+import { COLLECTIONS, repo } from "@/lib/store";
+import type { AppSettings, EmailDocument } from "@/lib/types";
+import { SETTINGS_DOC_ID } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Sends the generated email via SMTP and records the send in the
+ * SMTP service — sends the generated email and records the send in the
  * project documentation trail (sentAt/sentTo on the communication,
- * plus timeline events). Provider presets: gmail | microsoft | custom.
- * All credentials come from environment variables — never from the client.
+ * plus timeline events).
+ *
+ * Transport credentials come from environment variables ONLY.
+ * Sender identity (From name/email, Reply-To) is editable from the
+ * application Settings page and stored in Firestore; env vars act as
+ * fallback defaults.
  */
 
 interface SendPayload {
@@ -79,34 +84,39 @@ export async function POST(req: NextRequest) {
 
   try {
     const transporter = nodemailer.createTransport(resolveTransportOptions());
-    const fromName = process.env.SMTP_FROM_NAME ?? "911 Makers";
-    const fromEmail = process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER!;
+
+    // Sender identity: application settings first, env fallback.
+    const settings = await repo
+      .get<AppSettings>(COLLECTIONS.settings, SETTINGS_DOC_ID)
+      .catch(() => null);
+    const fromName = settings?.senderName || process.env.SMTP_FROM_NAME || "911 Makers";
+    const fromEmail = settings?.senderEmail || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER!;
+    const replyTo = settings?.replyToEmail || process.env.SMTP_REPLY_TO || undefined;
 
     const info = await transporter.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
       to,
       subject,
       html,
+      ...(replyTo ? { replyTo } : {}),
     });
 
     // Documentation trail: mark the communication as sent + log timeline events.
     if (emailId) {
-      const emails = await readCollection<EmailDocument>("emails");
-      const idx = emails.findIndex((e) => e.id === emailId);
-      if (idx !== -1) {
+      const doc = await repo.get<EmailDocument>(COLLECTIONS.communications, emailId);
+      if (doc) {
         const now = new Date().toISOString();
-        const doc = emails[idx];
         const requiresApproval =
           doc.approvalText.trim().length > 0 &&
-          (doc.approvalStatus === "none" || doc.approvalStatus === "pending");
-        emails[idx] = {
+          (doc.approvalStatus === "none" || doc.approvalStatus === "pending" || !doc.approvalStatus);
+        const next: EmailDocument = {
           ...doc,
           sentAt: now,
           sentTo: to,
-          approvalStatus: requiresApproval ? "requested" : doc.approvalStatus,
+          approvalStatus: requiresApproval ? "requested" : doc.approvalStatus ?? "none",
           updatedAt: now,
         };
-        await writeCollection("emails", emails);
+        await repo.set(COLLECTIONS.communications, next.id, next);
 
         if (doc.projectId) {
           await addEvent(doc.projectId, "email_sent", `Sent to ${to}: "${subject}".`, doc.id);

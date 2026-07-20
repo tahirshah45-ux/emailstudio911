@@ -35,6 +35,7 @@ import {
   Separator,
 } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
+import ChecklistsCard from "./ChecklistsCard";
 
 export default function ProjectDetail({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     return <div className="p-8 text-center text-sm text-neutral-400">Loading project…</div>;
   }
 
-  const { project, events, communications } = bundle;
+  const { project, events, communications, checklists } = bundle;
   const closed = project.status === "closed";
 
   const setStage = async (stage: string) => {
@@ -255,6 +256,13 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
               ))}
             </CardContent>
           </Card>
+
+          <ChecklistsCard
+            projectId={project.id}
+            checklists={checklists ?? []}
+            disabled={closed}
+            onChanged={() => void refresh()}
+          />
         </div>
 
         {/* Timeline */}

@@ -97,6 +97,8 @@ export type TimelineEventType =
   | "approval_rejected"
   | "approval_revision"
   | "note"
+  | "checklist_added"
+  | "checklist_completed"
   | "project_closed"
   | "project_reopened";
 
@@ -108,6 +110,66 @@ export interface TimelineEvent {
   description: string;
   at: string;
 }
+
+/* ------------------------------------------------------------------ */
+/* Approval records (audit trail)                                      */
+/* ------------------------------------------------------------------ */
+
+/** Immutable record of every approval decision — who, when, what, why. */
+export interface ApprovalRecord {
+  id: string;
+  communicationId: string;
+  projectId: string | null;
+  status: ApprovalStatus;
+  note: string;
+  user: string;
+  at: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Checklists                                                          */
+/* ------------------------------------------------------------------ */
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+export interface Checklist {
+  id: string;
+  projectId: string;
+  name: string;
+  items: ChecklistItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const CHECKLIST_PRESETS = [
+  "Pages",
+  "Features",
+  "Forms",
+  "Branding",
+  "Assets",
+  "Timeline",
+  "Deliverables",
+  "Approval Items",
+] as const;
+
+/* ------------------------------------------------------------------ */
+/* Application settings                                                */
+/* ------------------------------------------------------------------ */
+
+/** Editable sender identity — managed from the Settings page, no code changes. */
+export interface AppSettings {
+  id: string;
+  senderName: string;
+  senderEmail: string;
+  replyToEmail: string;
+  updatedAt: string;
+}
+
+export const SETTINGS_DOC_ID = "main";
 
 /* ------------------------------------------------------------------ */
 
