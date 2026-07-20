@@ -10,9 +10,12 @@ import { getDb } from "@/lib/firebase";
 import type { Identifiable, Repository } from "./repository";
 
 /**
- * Firestore repository driver — the production source of truth.
- * Uses the Firebase Web SDK against the named database
- * (emailsystem911makers). Documents are stored 1:1 with their ids.
+ * Firestore repository driver — Firebase WEB SDK, browser context.
+ *
+ * NOT used by API routes (they use adminRepo, which authenticates with a
+ * service account and bypasses Security Rules). This driver exists for
+ * browser components that may talk to Firestore directly in the future;
+ * it is subject to Firestore Security Rules (see firestore.rules).
  */
 
 /** Firestore rejects `undefined` values — strip them deeply. */

@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────
+// 911 Makers Client Communication Center — Firestore Security Rules
+//
+// PRODUCTION MODEL (recommended, and what the app uses today):
+//   All reads/writes go through the Next.js API routes, which use the
+//   Firebase ADMIN SDK with a service account. The Admin SDK bypasses
+//   these rules entirely, so client access can (and should) be fully
+//   locked down. Nothing in the browser talks to Firestore directly.
+//
+// Apply these rules to the `emailsystem911makers` database:
+//   Firebase Console → Firestore → (select database) → Rules → publish,
+//   or `firebase deploy --only firestore:rules`.
+// ─────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Deny all direct client access. Server (Admin SDK) is unaffected.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ── OPTIONAL: development-only direct browser access ─────────────
+    // If you later build browser features that use the Web SDK directly
+    // (src/lib/store/firestoreRepo.ts), enable Firebase Authentication,
+    // sign in your team members, and replace the block above with:
+    //
+    // match /{document=**} {
+    //   allow read, write: if request.auth != null;
+    // }
+    //
+    // Never use `if true` — that exposes all client project data to the
+    // public internet.
+  }
+}

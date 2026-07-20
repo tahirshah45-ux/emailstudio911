@@ -14,7 +14,7 @@ npm run dev                  # http://localhost:3000
 
 Production: `npm run build && npm start`.
 
-Firestore works out of the box — the app is preconfigured for the `client-communication-center` Firebase project, database `emailsystem911makers`. Make sure that database exists and its security rules permit access.
+Firestore requires a one-time service-account setup (5 minutes): follow [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md). The app is preconfigured for the `client-communication-center` Firebase project, database `emailsystem911makers`.
 
 ## The workflow
 
@@ -44,8 +44,11 @@ Firestore is the **only source of truth for production data**. Collections:
 
 The storage layer is modular: business logic and API routes depend only on the `Repository` interface (`src/lib/store/repository.ts`). Drivers:
 
-- **`firestoreRepo`** — production default (Firebase Web SDK, named database `emailsystem911makers`).
+- **`adminRepo`** — production default for ALL API routes. Firebase **Admin SDK** with a service account (named database `emailsystem911makers`); never blocked by Security Rules. Requires `FIREBASE_SERVICE_ACCOUNT_KEY` — see [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md).
+- **`firestoreRepo`** — Firebase **Web SDK**, reserved for browser components that may access Firestore directly in the future; subject to Security Rules.
 - **`jsonRepo`** — local JSON files, used ONLY for offline development/CI (`STORAGE_DRIVER=json`). Never used in production.
+
+Direct client access to Firestore is locked down by [`firestore.rules`](./firestore.rules) (deny-all) — safe because the Admin SDK bypasses rules and all traffic flows through the API routes.
 
 Adding another backend later (Postgres, KV, …) means implementing one interface — no business logic changes.
 
@@ -82,7 +85,7 @@ Future modules (proposals, quotations, invoices, contracts, client portal, PDF, 
 ## Deploying to Vercel
 
 1. Push to GitHub and import the repo in Vercel.
-2. Add the SMTP environment variables (Firestore config is built in; override with `NEXT_PUBLIC_FIREBASE_*` only if the Firebase project changes).
+2. Add environment variables: `FIREBASE_SERVICE_ACCOUNT_KEY` (see FIRESTORE_SETUP.md) and the SMTP variables. Firestore web config is built in; override with `NEXT_PUBLIC_FIREBASE_*` only if the Firebase project changes.
 3. Deploy. All data lives in Firestore, so serverless statelessness is not a problem.
 
 ## Notes

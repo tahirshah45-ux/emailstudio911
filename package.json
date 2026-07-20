@@ -24,13 +24,15 @@
     "@tiptap/starter-kit": "^2.6.6",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "firebase": "^10.13.0",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^12.7.0",
     "framer-motion": "^11.5.4",
     "lucide-react": "^0.441.0",
     "next": "14.2.15",
     "nodemailer": "^6.9.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
