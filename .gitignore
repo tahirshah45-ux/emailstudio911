@@ -2,8 +2,13 @@ node_modules/
 .next/
 out/
 data/
+
 .env
 .env.local
+
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Firebase Admin Service Account
+client-communication-center-firebase-adminsdk-fbsvc-35baf9abc9.json
