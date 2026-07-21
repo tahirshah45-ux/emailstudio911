@@ -30,6 +30,35 @@ export function generateEmail(f: EmailFields): string {
   const content = transformContent(f.contentHtml);
   const year = new Date().getFullYear();
 
+  // Secure client-portal call-to-action (rendered when a portal is attached).
+  const portalBlock = f.portalUrl?.trim()
+    ? `
+    <tr>
+    <td style="background-color:${BRAND.white}; padding:6px 0 30px 0; border-left:1px solid ${BRAND.border}; border-right:1px solid ${BRAND.border};">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+        <td align="center" class="em-px" style="padding:0 40px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${BRAND.cardBg}; border:1px solid ${BRAND.border}; border-radius:10px;">
+            <tr>
+            <td align="center" style="padding:26px 24px;">
+              <div style="font-family:${FONT_STACK}; font-size:15px; line-height:23px; font-weight:700; color:${BRAND.heading};">Complete Your Project Information Online</div>
+              <div style="font-family:${FONT_STACK}; font-size:13px; line-height:20px; color:${BRAND.muted}; padding:6px 0 16px 0;">Review the scope, share your details, upload files, and sign — all in one secure portal.</div>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td align="center" style="background-color:${BRAND.gold}; border-radius:8px;">
+                  <a href="${f.portalUrl.trim().replace(/"/g, "&quot;")}" style="display:inline-block; font-family:${FONT_STACK}; font-size:15px; line-height:22px; font-weight:700; color:${BRAND.black}; padding:13px 34px; text-decoration:none;">Review &amp; Complete Project</a>
+                </td>
+              </tr></table>
+              <div style="font-family:${FONT_STACK}; font-size:11px; line-height:17px; color:${BRAND.label}; padding-top:12px;">This secure link is personal to you. Your progress is saved automatically.</div>
+            </td>
+            </tr>
+          </table>
+        </td>
+        </tr>
+      </table>
+    </td>
+    </tr>`
+    : "";
+
   const approvalBlock = f.approvalText.trim()
     ? `
     <tr>
@@ -179,6 +208,8 @@ export function generateEmail(f: EmailFields): string {
       </table>
     </td>
     </tr>
+
+    ${portalBlock}
 
     ${approvalBlock}
 

@@ -28,6 +28,25 @@ Firestore requires a one-time service-account setup (5 minutes): follow [FIRESTO
 
 The timeline is append-only. Nothing is lost.
 
+## Client Collaboration Portal
+
+Every communication can carry a **secure client portal link** (composer → *Attach Portal*). The client clicks the button in the email and lands in a branded, no-login workspace at `/client-portal/{token}`:
+
+1. **Welcome** → project summary, estimated time, auto-save notice.
+2. **Project Overview** → the scope document, with required acknowledgement.
+3. **Business Information** → validated contact/company details.
+4. **Project Requirements** → structured long-form inputs (goals, audience, pages, features, competitors…).
+5. **Reference Websites** → unlimited references with likes/dislikes/priority.
+6. **File Uploads** → drag-and-drop by category (Logo, Brand Guidelines, Content…), direct-to-Cloudinary with progress, retry, remove, duplicate detection.
+7. **Review** → read-only summary with per-section edit.
+8. **Confirm & Sign** → scope confirmation, per-item checklist confirmation (from the project's checklists), client declaration, drawn electronic signature (touch/mouse), locked final submission.
+
+Security: links contain a 256-bit token; only its SHA-256 hash is stored (as the portal document id), so the database never contains a usable link. Portals expire (default 30 days), can be cancelled, and lock after submission. Friendly error pages cover invalid/expired/cancelled/completed links. Every milestone writes a timeline event; submission writes an immutable signature record and approval record, flips the communication to *Client Submitted / approved*, and surfaces everything (submission summary, signature preview, documents with search/download) in the project's **Client Collaboration** panel.
+
+Storage: uploads go through the Storage Service abstraction (`src/lib/storage-service/`) — currently Cloudinary via short-lived signed browser uploads (the API secret never leaves the server; Firestore stores metadata only). Future providers (Firebase Storage, S3, Azure, GCS) implement one interface. Requires `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (see `.env.example`).
+
+New Firestore collections: `client_portals`, `client_submissions`, `project_documents`, `electronic_signatures` (plus the existing `approvals` and `timeline_events`).
+
 ## Storage — Firebase Firestore
 
 Firestore is the **only source of truth for production data**. Collections:

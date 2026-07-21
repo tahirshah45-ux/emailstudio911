@@ -4,9 +4,13 @@ import type {
   Checklist,
   ChecklistItem,
   Client,
+  ClientPortal,
+  ClientSubmission,
+  ElectronicSignature,
   EmailDocument,
   EmailFields,
   Project,
+  ProjectDocument,
   TimelineEvent,
 } from "./types";
 
@@ -37,6 +41,13 @@ export interface ProjectBundle {
   checklists: Checklist[];
 }
 
+export interface CollaborationBundle {
+  portals: (Omit<ClientPortal, "id"> & { id: string; tokenHashPrefix: string })[];
+  submissions: ClientSubmission[];
+  documents: ProjectDocument[];
+  signatures: ElectronicSignature[];
+}
+
 export const api = {
   clients: {
     list: () => request<Client[]>("/api/clients"),
@@ -57,6 +68,17 @@ export const api = {
         body: JSON.stringify({ description }),
       }),
     remove: (id: string) => request<{ ok: true }>(`/api/projects/${id}`, { method: "DELETE" }),
+  },
+  portal: {
+    /** Creates a secure portal for a communication; the URL is returned exactly once. */
+    create: (projectId: string, communicationId: string, expiresInDays?: number) =>
+      request<{ url: string; expiresAt: string; status: string }>(`/api/projects/${projectId}/portal`, {
+        method: "POST",
+        body: JSON.stringify({ communicationId, expiresInDays }),
+      }),
+  },
+  collaboration: {
+    get: (projectId: string) => request<CollaborationBundle>(`/api/projects/${projectId}/collaboration`),
   },
   checklists: {
     listForProject: (projectId: string) =>

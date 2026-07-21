@@ -11,6 +11,7 @@ import {
   Download,
   FilePlus2,
   FolderOpen,
+  Link2,
   Moon,
   Save,
   Send,
@@ -51,6 +52,7 @@ function emptyFields(templateId: string, projectId: string | null = null): Email
     approvalHeading: "",
     approvalText: "",
     approvalButtonText: "",
+    portalUrl: "",
     footerNote: "",
     senderName: "",
     senderTitle: "",
@@ -320,6 +322,22 @@ export default function Studio({ projectId = null, commId = null, templateId = n
     }
   };
 
+  const attachPortal = async () => {
+    if (!fields.projectId) {
+      toast("error", "Portals require a project — open this composer from a project page.");
+      return;
+    }
+    try {
+      const id = await ensureSaved();
+      const { url } = await api.portal.create(fields.projectId, id);
+      patch({ portalUrl: url });
+      await navigator.clipboard.writeText(url).catch(() => {});
+      toast("success", "Secure portal created and attached — the email now includes the portal button.");
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : "Portal could not be created.");
+    }
+  };
+
   const saveClient = async () => {
     try {
       const c = await api.clients.create({
@@ -444,6 +462,16 @@ export default function Studio({ projectId = null, commId = null, templateId = n
         <Button variant="outline" size="sm" onClick={exportHtml}>
           <Download size={14} /> Export HTML
         </Button>
+        {fields.projectId && (
+          <Button
+            variant={fields.portalUrl ? "ghost" : "outline"}
+            size="sm"
+            onClick={attachPortal}
+            title={fields.portalUrl ? "Portal attached — click to create a fresh link" : "Create a secure client portal and attach its button to this email"}
+          >
+            <Link2 size={14} /> {fields.portalUrl ? "Portal Attached ✓" : "Attach Portal"}
+          </Button>
+        )}
         <div className="flex-1" />
         {activeId && (
           <span className="text-[11px] text-neutral-400">

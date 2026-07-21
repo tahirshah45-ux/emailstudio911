@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import ChecklistsCard from "./ChecklistsCard";
+import CollaborationCard from "./CollaborationCard";
 
 export default function ProjectDetail({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -263,6 +264,8 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
             disabled={closed}
             onChanged={() => void refresh()}
           />
+
+          <CollaborationCard projectId={project.id} />
         </div>
 
         {/* Timeline */}
