@@ -6,7 +6,7 @@ import { transformContent } from "./transform";
 /**
  * Assembles the complete branded 911 Makers email from an EmailFields object.
  * Output is production email HTML: table-based layout, fully inline CSS,
- * max-width 640px, responsive, Resend/SMTP compatible.
+ * max-width 640px, responsive, Resend compatible.
  */
 
 const label = (text: string) =>
@@ -19,11 +19,9 @@ function metaCell(title: string, value: string): string {
   return `<tr><td style="padding:0 0 14px 0;">${label(title)}${metaValue(value)}</td></tr>`;
 }
 
-function textLogo(size: "large" | "small"): string {
-  const fs = size === "large" ? 30 : 16;
-  const lh = size === "large" ? 32 : 22;
-  const ls = size === "large" ? 2 : 1.5;
-  return `<div style="font-family:Arial Black, Arial, Helvetica, sans-serif; font-size:${fs}px; line-height:${lh}px; font-weight:900; letter-spacing:${ls}px; mso-line-height-rule:exactly;"><span style="color:${BRAND.gold};">911</span><span style="color:${BRAND.white};">MAKERS</span></div>`;
+function logoImage(size: "large" | "small"): string {
+  const width = size === "large" ? 180 : 110;
+  return `<img src="${COMPANY.logoUrl}" width="${width}" alt="${COMPANY.name}" style="display:block; width:${width}px; max-width:100%; height:auto; border:0; outline:none; text-decoration:none;">`;
 }
 
 export function generateEmail(f: EmailFields): string {
@@ -132,7 +130,7 @@ export function generateEmail(f: EmailFields): string {
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border:2px solid ${BRAND.white}; border-radius:8px;">
             <tr>
             <td align="center" style="padding:14px 26px 12px 26px;">
-              ${textLogo("large")}
+              ${logoImage("large")}
               <div style="font-family:Arial, Helvetica, sans-serif; font-size:10px; line-height:14px; font-weight:bold; letter-spacing:5px; color:${BRAND.white}; padding-top:5px;">${COMPANY.tagline.replace(/ /g, "&nbsp;")}</div>
             </td>
             </tr>
@@ -236,7 +234,7 @@ export function generateEmail(f: EmailFields): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
         <td align="center">
-          ${textLogo("small")}
+          ${logoImage("small")}
           <div style="font-family:${FONT_STACK}; font-size:12px; line-height:18px; color:${BRAND.label}; padding-top:4px;">${COMPANY.division.replace(/&/g, "&amp;")}</div>
           <table role="presentation" width="60" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:16px auto;"><tr><td height="2" style="height:2px; line-height:2px; font-size:1px; background-color:${BRAND.gold};">&nbsp;</td></tr></table>
           <div style="font-family:${FONT_STACK}; font-size:11px; line-height:18px; color:${BRAND.muted};">${escapeHtml(f.footerNote)}</div>

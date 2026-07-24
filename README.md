@@ -2,13 +2,13 @@
 
 Enterprise client communication and project documentation platform. Every important client communication is created, sent, and recorded here — making requirements, approvals, scope changes, and confirmations professional, documented, traceable, and defensible across the entire project lifecycle.
 
-Built with Next.js 14 (App Router), TypeScript, Tailwind CSS, TipTap, Framer Motion, Nodemailer, and **Firebase Firestore**.
+Built with Next.js 14 (App Router), TypeScript, Tailwind CSS, TipTap, Framer Motion, Resend, and **Firebase Firestore**.
 
 ## Quick start
 
 ```bash
 npm install
-cp .env.example .env.local   # SMTP credentials (only needed for sending)
+cp .env.example .env.local   # Resend credentials (only needed for sending)
 npm run dev                  # http://localhost:3000
 ```
 
@@ -21,7 +21,7 @@ Firestore requires a one-time service-account setup (5 minutes): follow [FIRESTO
 1. **Projects** (home page): create a project — it gets an auto reference number (`911M-YYYY-NNN`), starts at the *Scope Confirmation* stage, and its timeline begins.
 2. **New Communication**: from the project page, pick a template (12 built in) — the composer opens pre-filled with the project's client details and reference.
 3. **Compose**: rich text editor (headings, lists, checklists, tables, links, images) with auto-updating live preview. No HTML editing, ever.
-4. **Send**: the communication is saved first, then sent via SMTP, then recorded in the project timeline. Emails with a confirmation block automatically become *Approval Requested*.
+4. **Send**: the communication is saved first, then sent via Resend, then recorded in the project timeline. Emails with a confirmation block automatically become *Approval Requested*.
 5. **Record decisions**: *Approved* / *Needs Revision* / *Rejected* with notes. Each decision writes an immutable audit record (who, when, what, why) to the `approvals` collection AND a timeline event.
 6. **Checklists**: add reusable checklists per project (Pages, Features, Forms, Branding, Assets, Timeline, Deliverables, Approval Items, or custom). Completion is stored in Firestore and logged to the timeline.
 7. **Advance the stage** (Scope Confirmation → Requirements Collection → Development → Design Review → QA Review → Delivery → Client Acceptance → Closed), add manual notes, and close the project when accepted. The record stays.
@@ -73,18 +73,19 @@ Adding another backend later (Postgres, KV, …) means implementing one interfac
 
 ## Settings (sender identity)
 
-The **Settings** page lets administrators change the Sender Name, Sender Email, and Reply-To for all outgoing email — stored in Firestore, no code changes. SMTP transport credentials stay in environment variables only and are never written to the database.
+The **Settings** page lets administrators change the Sender Name, Sender Email, and Reply-To for all outgoing email — stored in Firestore, no code changes. Resend transport credentials stay in environment variables only and are never written to the database.
 
-## SMTP configuration
+## Resend configuration
 
 Set in `.env.local` / Vercel environment variables:
 
 | Variable | Purpose |
 |---|---|
-| `SMTP_PROVIDER` | `gmail`, `microsoft`, or `custom` |
-| `SMTP_USER` / `SMTP_PASS` | Login credentials (Gmail requires an App Password) |
-| `SMTP_FROM_NAME` / `SMTP_FROM_EMAIL` / `SMTP_REPLY_TO` | Fallback sender identity (Settings page takes precedence) |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | Only for `custom` provider |
+| `RESEND_API_KEY` | API key from [resend.com/api-keys](https://resend.com/api-keys) |
+| `EMAIL_FROM` | Fallback sender identity, e.g. `911 Makers <project@911makers.com>` (Settings page takes precedence) |
+| `EMAIL_REPLY_TO` | Optional fallback Reply-To address (Settings page takes precedence) |
+
+The sending domain (`911makers.com`) must be a verified domain in the Resend dashboard.
 
 ## Architecture
 
@@ -104,11 +105,11 @@ Future modules (proposals, quotations, invoices, contracts, client portal, PDF, 
 ## Deploying to Vercel
 
 1. Push to GitHub and import the repo in Vercel.
-2. Add environment variables: `FIREBASE_SERVICE_ACCOUNT_KEY` (see FIRESTORE_SETUP.md) and the SMTP variables. Firestore web config is built in; override with `NEXT_PUBLIC_FIREBASE_*` only if the Firebase project changes.
+2. Add environment variables: `FIREBASE_SERVICE_ACCOUNT_KEY` (see FIRESTORE_SETUP.md) and the Resend variables (`RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO`). Firestore web config is built in; override with `NEXT_PUBLIC_FIREBASE_*` only if the Firebase project changes.
 3. Deploy. All data lives in Firestore, so serverless statelessness is not a problem.
 
 ## Notes
 
 - Version history per communication is capped at 10 snapshots (Firestore 1 MB document limit).
 - Images in emails must be publicly hosted URLs — email clients cannot load local files.
-- The email logo is text-rendered (gold "911" + white "MAKERS") so it displays even when images are blocked.
+- The email logo is the official 911 Makers logo image (hosted, with `alt` text fallback for clients that block images).

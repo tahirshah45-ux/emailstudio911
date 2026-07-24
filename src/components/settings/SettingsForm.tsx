@@ -16,7 +16,7 @@ import {
 /**
  * Application settings — sender identity used for outgoing email.
  * Administrators can change these without touching code or env vars.
- * SMTP transport credentials remain in environment variables only.
+ * Resend transport credentials remain in environment variables only.
  */
 export default function SettingsForm() {
   const [senderName, setSenderName] = useState("");
@@ -55,7 +55,7 @@ export default function SettingsForm() {
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="mb-1 text-xl font-bold">Settings</h1>
       <p className="mb-6 text-sm text-neutral-500">
-        Sender identity for all outgoing communications. SMTP credentials are configured in{" "}
+        Sender identity for all outgoing communications. Resend credentials are configured in{" "}
         <code className="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">.env.local</code>{" "}
         and are never stored in the database.
       </p>
@@ -87,8 +87,8 @@ export default function SettingsForm() {
                   placeholder="projects@911makers.com"
                 />
                 <p className="text-xs text-neutral-400">
-                  Must be an address your SMTP account is allowed to send as. Leave empty to use the
-                  SMTP account address.
+                  Must be a sender address verified in Resend. Leave empty to use the
+                  default sender address (EMAIL_FROM).
                 </p>
               </div>
               <div className="space-y-1">

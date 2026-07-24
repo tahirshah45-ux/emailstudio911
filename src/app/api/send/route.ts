@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, repo } from "@/lib/store";
 import type { AppSettings, EmailDocument } from "@/lib/types";
@@ -8,7 +8,7 @@ import { SETTINGS_DOC_ID } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 /**
- * SMTP service — sends the generated email and records the send in the
+ * Resend service — sends the generated email and records the send in the
  * project documentation trail (sentAt/sentTo on the communication,
  * plus timeline events).
  *
@@ -26,42 +26,20 @@ interface SendPayload {
   emailId?: string;
 }
 
-function resolveTransportOptions() {
-  const provider = (process.env.SMTP_PROVIDER ?? "custom").toLowerCase();
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!user || !pass) {
+function resolveFrom(settings: AppSettings | null): string {
+  if (settings?.senderName && settings?.senderEmail) {
+    return `${settings.senderName} <${settings.senderEmail}>`;
+  }
+  const envFrom = process.env.EMAIL_FROM;
+  if (!envFrom) {
     throw new Error(
-      "SMTP is not configured. Set SMTP_USER and SMTP_PASS in your environment (.env.local)."
+      "Resend is not configured. Set EMAIL_FROM in your environment (e.g. \"911 Makers <project@911makers.com>\")."
     );
   }
-
-  const auth = { user, pass };
-
-  switch (provider) {
-    case "gmail":
-      return { host: "smtp.gmail.com", port: 465, secure: true, auth };
-    case "microsoft":
-    case "outlook":
-    case "office365":
-      return { host: "smtp.office365.com", port: 587, secure: false, auth };
-    case "custom": {
-      const host = process.env.SMTP_HOST;
-      if (!host) throw new Error("SMTP_PROVIDER=custom requires SMTP_HOST to be set.");
-      return {
-        host,
-        port: Number(process.env.SMTP_PORT ?? 587),
-        secure: process.env.SMTP_SECURE === "true",
-        auth,
-      };
-    }
-    default:
-      throw new Error(`Unknown SMTP_PROVIDER "${provider}". Use gmail, microsoft, or custom.`);
-  }
+  return envFrom;
 }
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
   let payload: SendPayload;
@@ -82,24 +60,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email HTML is empty — generate the email first." }, { status: 400 });
   }
 
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "Resend is not configured. Set RESEND_API_KEY in your environment." },
+      { status: 500 }
+    );
+  }
+
   try {
-    const transporter = nodemailer.createTransport(resolveTransportOptions());
+    const resend = new Resend(apiKey);
 
     // Sender identity: application settings first, env fallback.
     const settings = await repo
       .get<AppSettings>(COLLECTIONS.settings, SETTINGS_DOC_ID)
       .catch(() => null);
-    const fromName = settings?.senderName || process.env.SMTP_FROM_NAME || "911 Makers";
-    const fromEmail = settings?.senderEmail || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER!;
-    const replyTo = settings?.replyToEmail || process.env.SMTP_REPLY_TO || undefined;
+    const from = resolveFrom(settings);
+    const replyTo = settings?.replyToEmail || process.env.EMAIL_REPLY_TO || undefined;
 
-    const info = await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
+    const { data, error } = await resend.emails.send({
+      from,
       to,
       subject,
       html,
       ...(replyTo ? { replyTo } : {}),
     });
+
+    if (error) {
+      console.error("Resend API error:", error);
+      return NextResponse.json(
+        { error: `Resend API error: ${error.message}`, code: error.name },
+        { status: 502 }
+      );
+    }
 
     // Documentation trail: mark the communication as sent + log timeline events.
     if (emailId) {
@@ -132,9 +125,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, messageId: info.messageId });
+    return NextResponse.json({ ok: true, messageId: data?.id });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to send email.";
+    console.error("Email send failed:", err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
