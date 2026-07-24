@@ -11,6 +11,19 @@ export interface Identifiable {
 
 export interface Repository {
   list<T extends Identifiable>(collection: string): Promise<T[]>;
+  /**
+   * Server-side equality-filtered list — e.g. all communications for one
+   * project. Prefer this over `list()` + `.filter()` whenever a collection
+   * can hold documents for many projects/portals: filtering in Firestore
+   * means only the matching documents are ever read.
+   */
+  listWhere<T extends Identifiable>(collection: string, field: string, value: string): Promise<T[]>;
+  /**
+   * Server-side count of documents matching an equality filter. Backed by
+   * a Firestore aggregation query where possible, so counting (e.g. a
+   * project's communications) never requires reading the documents' data.
+   */
+  count(collection: string, field: string, value: string): Promise<number>;
   get<T extends Identifiable>(collection: string, id: string): Promise<T | null>;
   /** Creates or fully replaces a document. */
   set<T extends Identifiable>(collection: string, id: string, doc: T): Promise<void>;

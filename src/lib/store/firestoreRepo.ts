@@ -2,9 +2,12 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import type { Identifiable, Repository } from "./repository";
@@ -27,6 +30,16 @@ export const firestoreRepo: Repository = {
   async list<T extends Identifiable>(name: string): Promise<T[]> {
     const snap = await getDocs(collection(getDb(), name));
     return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
+  },
+
+  async listWhere<T extends Identifiable>(name: string, field: string, value: string): Promise<T[]> {
+    const snap = await getDocs(query(collection(getDb(), name), where(field, "==", value)));
+    return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
+  },
+
+  async count(name: string, field: string, value: string): Promise<number> {
+    const snap = await getCountFromServer(query(collection(getDb(), name), where(field, "==", value)));
+    return snap.data().count;
   },
 
   async get<T extends Identifiable>(name: string, id: string): Promise<T | null> {

@@ -6,12 +6,8 @@ import type { Checklist, ChecklistItem, Project } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const checklists = await repo.list<Checklist>(COLLECTIONS.checklists);
-  return NextResponse.json(
-    checklists
-      .filter((c) => c.projectId === params.id)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-  );
+  const checklists = await repo.listWhere<Checklist>(COLLECTIONS.checklists, "projectId", params.id);
+  return NextResponse.json(checklists.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

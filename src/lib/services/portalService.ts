@@ -149,28 +149,28 @@ async function resolvePortal(token: string): Promise<ClientPortal> {
 }
 
 async function submissionForPortal(portalId: string): Promise<ClientSubmission> {
-  const all = await repo.list<ClientSubmission>(SUBMISSIONS);
-  const found = all.find((s) => s.portalId === portalId);
+  const matches = await repo.listWhere<ClientSubmission>(SUBMISSIONS, "portalId", portalId);
+  const found = matches[0];
   if (!found) throw new PortalError("This link is not valid.", "invalid", 404);
   return found;
 }
 
 async function documentsForPortal(portalId: string): Promise<ProjectDocument[]> {
-  const all = await repo.list<ProjectDocument>(DOCUMENTS);
-  return all
-    .filter((d) => d.portalId === portalId && d.status === "uploaded")
+  const matches = await repo.listWhere<ProjectDocument>(DOCUMENTS, "portalId", portalId);
+  return matches
+    .filter((d) => d.status === "uploaded")
     .sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
 }
 
 /** Full collaboration session — only client-safe fields, no internal ids beyond what the client owns. */
 export async function getSession(token: string) {
   const portal = await resolvePortal(token);
-  const [project, comm, submission, documents, allChecklists] = await Promise.all([
+  const [project, comm, submission, documents, projectChecklists] = await Promise.all([
     repo.get<Project>(COLLECTIONS.projects, portal.projectId),
     repo.get<EmailDocument>(COLLECTIONS.communications, portal.communicationId),
     submissionForPortal(portal.id),
     documentsForPortal(portal.id),
-    repo.list<Checklist>(COLLECTIONS.checklists),
+    repo.listWhere<Checklist>(COLLECTIONS.checklists, "projectId", portal.projectId),
   ]);
   if (!project || !comm) throw new PortalError("This link is not valid.", "invalid", 404);
 
@@ -181,9 +181,9 @@ export async function getSession(token: string) {
     await addEvent(portal.projectId, "portal_opened", `Client opened the collaboration portal.`, comm.id);
   }
 
-  const checklistItems = allChecklists
-    .filter((c) => c.projectId === project.id)
-    .flatMap((c) => c.items.map((i) => ({ id: i.id, group: c.name, text: i.text })));
+  const checklistItems = projectChecklists.flatMap((c) =>
+    c.items.map((i) => ({ id: i.id, group: c.name, text: i.text }))
+  );
 
   return {
     status: portal.submissionLocked ? "submitted" : portal.status,
@@ -513,24 +513,19 @@ export async function submit(
 
 export async function collaborationForProject(projectId: string) {
   const [portals, submissions, documents, signatures] = await Promise.all([
-    repo.list<ClientPortal>(PORTALS),
-    repo.list<ClientSubmission>(SUBMISSIONS),
-    repo.list<ProjectDocument>(DOCUMENTS),
-    repo.list<ElectronicSignature>(SIGNATURES),
+    repo.listWhere<ClientPortal>(PORTALS, "projectId", projectId),
+    repo.listWhere<ClientSubmission>(SUBMISSIONS, "projectId", projectId),
+    repo.listWhere<ProjectDocument>(DOCUMENTS, "projectId", projectId),
+    repo.listWhere<ElectronicSignature>(SIGNATURES, "projectId", projectId),
   ]);
   return {
     portals: portals
-      .filter((p) => p.projectId === projectId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map(({ id, ...rest }) => ({ id: id.slice(0, 8), ...rest, tokenHashPrefix: id.slice(0, 8) })),
-    submissions: submissions
-      .filter((s) => s.projectId === projectId)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    submissions: submissions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     documents: documents
-      .filter((d) => d.projectId === projectId && d.status === "uploaded")
+      .filter((d) => d.status === "uploaded")
       .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt)),
-    signatures: signatures
-      .filter((s) => s.projectId === projectId)
-      .sort((a, b) => b.signedAt.localeCompare(a.signedAt)),
+    signatures: signatures.sort((a, b) => b.signedAt.localeCompare(a.signedAt)),
   };
 }

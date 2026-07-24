@@ -26,6 +26,6 @@ export async function addEvent(
 }
 
 export async function eventsForProject(projectId: string): Promise<TimelineEvent[]> {
-  const events = await repo.list<TimelineEvent>(COLLECTIONS.events);
-  return events.filter((e) => e.projectId === projectId).sort((a, b) => b.at.localeCompare(a.at));
+  const events = await repo.listWhere<TimelineEvent>(COLLECTIONS.events, "projectId", projectId);
+  return events.sort((a, b) => b.at.localeCompare(a.at));
 }
