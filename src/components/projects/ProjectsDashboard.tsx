@@ -26,6 +26,13 @@ export default function ProjectsDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  /**
+   * Distinguishes "still loading" / "loaded successfully" / "failed to
+   * load" so a fetch error is never rendered as the empty state — a
+   * Firestore/API failure must never look identical to "no projects".
+   */
+  const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState({
     name: "",
     clientName: "",
@@ -36,9 +43,16 @@ export default function ProjectsDashboard() {
 
   const refresh = useCallback(async () => {
     try {
-      setProjects(await api.projects.list());
-    } catch {
-      /* server unreachable */
+      const data = await api.projects.list();
+      setProjects(data);
+      setLoadStatus("ready");
+      setLoadError("");
+    } catch (e) {
+      // Do not clear `projects` here — a failed refresh must never wipe
+      // out projects already rendered from a prior successful load.
+      console.error("Failed to load projects:", e);
+      setLoadStatus("error");
+      setLoadError(e instanceof Error ? e.message : "Could not load projects.");
     }
   }, []);
 
@@ -174,12 +188,34 @@ export default function ProjectsDashboard() {
         </motion.div>
       )}
 
-      {filtered.length === 0 ? (
+      {loadStatus === "error" ? (
+        <Card>
+          <CardContent className="py-16 text-center text-sm">
+            <p className="font-medium text-red-600">Could not load projects: {loadError}</p>
+            <p className="mt-1 text-neutral-400">
+              This is a connection/loading error, not data loss — existing projects are safe in Firestore.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-4"
+              onClick={() => {
+                setLoadStatus("loading");
+                void refresh();
+              }}
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-sm text-neutral-400">
-            {projects.length === 0
-              ? "No projects yet. Create your first project to start the official communication record."
-              : "No projects match your search."}
+            {loadStatus === "loading"
+              ? "Loading projects…"
+              : projects.length === 0
+                ? "No projects yet. Create your first project to start the official communication record."
+                : "No projects match your search."}
           </CardContent>
         </Card>
       ) : (
