@@ -26,6 +26,7 @@ export default function ProjectsDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState({
     name: "",
     clientName: "",
@@ -37,8 +38,9 @@ export default function ProjectsDashboard() {
   const refresh = useCallback(async () => {
     try {
       setProjects(await api.projects.list());
-    } catch {
-      /* server unreachable */
+      setLoadError("");
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not load projects.");
     }
   }, []);
 
@@ -96,6 +98,12 @@ export default function ProjectsDashboard() {
           </Button>
         </div>
       </div>
+
+      {loadError && (
+        <Card className="mb-6 border-red-200 dark:border-red-900">
+          <CardContent className="py-3 text-center text-sm text-red-600">{loadError}</CardContent>
+        </Card>
+      )}
 
       {showForm && (
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>

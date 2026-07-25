@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { COLLECTIONS, repo } from "@/lib/store";
 import type { AppSettings } from "@/lib/types";
 import { SETTINGS_DOC_ID } from "@/lib/types";
@@ -13,14 +14,14 @@ const DEFAULTS: AppSettings = {
   updatedAt: "",
 };
 
-export async function GET() {
+export const GET = withApiErrors("settings", async () => {
   const settings = await repo.get<AppSettings>(COLLECTIONS.settings, SETTINGS_DOC_ID);
   return NextResponse.json(settings ?? DEFAULTS);
-}
+});
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function PUT(req: NextRequest) {
+export const PUT = withApiErrors("settings", async (req: NextRequest) => {
   const body = (await req.json()) as Partial<AppSettings>;
 
   if (body.senderEmail && !EMAIL_RE.test(body.senderEmail)) {
@@ -41,4 +42,4 @@ export async function PUT(req: NextRequest) {
   };
   await repo.set(COLLECTIONS.settings, SETTINGS_DOC_ID, next);
   return NextResponse.json(next);
-}
+});

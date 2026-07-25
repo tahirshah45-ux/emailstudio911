@@ -19,6 +19,11 @@ export const adminRepo: Repository = {
     return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
   },
 
+  async query<T extends Identifiable>(name: string, field: string, value: string): Promise<T[]> {
+    const snap = await getAdminDb().collection(name).where(field, "==", value).get();
+    return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
+  },
+
   async get<T extends Identifiable>(name: string, id: string): Promise<T | null> {
     const snap = await getAdminDb().collection(name).doc(id).get();
     if (!snap.exists) return null;

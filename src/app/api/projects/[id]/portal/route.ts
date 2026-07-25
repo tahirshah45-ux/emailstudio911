@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiErrorResponse } from "@/lib/apiErrors";
 import { createPortal, PortalError } from "@/lib/services/portalService";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (err instanceof PortalError) {
       return NextResponse.json({ error: err.message }, { status: err.httpStatus });
     }
-    console.error("[portal:create]", err);
-    return NextResponse.json({ error: "The portal could not be created." }, { status: 500 });
+    return apiErrorResponse(err, "portal:create");
   }
 }

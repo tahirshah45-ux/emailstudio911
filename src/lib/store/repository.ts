@@ -11,6 +11,14 @@ export interface Identifiable {
 
 export interface Repository {
   list<T extends Identifiable>(collection: string): Promise<T[]>;
+  /**
+   * Reads only documents where `field === value`, instead of the entire
+   * collection. Prefer this over `list()` + `.filter()` for anything scoped
+   * to a project/portal/etc. — on Firestore, `list()` bills one read per
+   * document in the WHOLE collection, while `query()` bills one read per
+   * matching document only.
+   */
+  query<T extends Identifiable>(collection: string, field: string, value: string): Promise<T[]>;
   get<T extends Identifiable>(collection: string, id: string): Promise<T | null>;
   /** Creates or fully replaces a document. */
   set<T extends Identifiable>(collection: string, id: string, doc: T): Promise<void>;

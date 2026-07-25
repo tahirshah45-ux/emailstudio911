@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { approvalEventType, APPROVAL_LABELS } from "@/lib/domain/stages";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, newId, repo } from "@/lib/store";
@@ -16,7 +17,7 @@ const VALID: ApprovalStatus[] = ["none", "pending", "requested", "approved", "re
  *   2. the `approvals` collection (immutable audit record: who/when/what/why),
  *   3. the project timeline (official record).
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiErrors("emails:approval", async (req: NextRequest, { params }: { params: { id: string } }) => {
   const body = (await req.json()) as { status?: ApprovalStatus; note?: string; user?: string };
   if (!body.status || !VALID.includes(body.status)) {
     return NextResponse.json({ error: `status must be one of: ${VALID.join(", ")}` }, { status: 400 });
@@ -54,4 +55,4 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   return NextResponse.json(next);
-}
+});

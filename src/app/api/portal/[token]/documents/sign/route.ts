@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiErrorResponse } from "@/lib/apiErrors";
 import { signDocumentUpload, PortalError } from "@/lib/services/portalService";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +26,6 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     if (err instanceof PortalError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.httpStatus });
     }
-    console.error("[portal:sign]", err);
-    return NextResponse.json(
-      { error: "The upload could not be prepared. Please try again.", code: "internal" },
-      { status: 500 }
-    );
+    return apiErrorResponse(err, "portal:sign");
   }
 }

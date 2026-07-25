@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, newId, repo } from "@/lib/store";
 import type { EmailDocument, EmailFields } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export const GET = withApiErrors("emails", async (req: NextRequest) => {
   const q = req.nextUrl.searchParams.get("q")?.toLowerCase().trim() ?? "";
   const projectId = req.nextUrl.searchParams.get("projectId");
-  let emails = await repo.list<EmailDocument>(COLLECTIONS.communications);
-  if (projectId) emails = emails.filter((e) => e.projectId === projectId);
+  // Scoped to a project: query only that project's documents. Unscoped
+  // full-text search still needs every document, since Firestore has no
+  // text-search index to filter on server-side.
+  let emails = projectId
+    ? await repo.query<EmailDocument>(COLLECTIONS.communications, "projectId", projectId)
+    : await repo.list<EmailDocument>(COLLECTIONS.communications);
   if (q) {
     emails = emails.filter((e) =>
       [e.subject, e.documentTitle, e.clientName, e.company, e.projectName, e.referenceNumber, e.status]
@@ -31,9 +36,9 @@ export async function GET(req: NextRequest) {
       historyCount: history?.length ?? 0,
     }))
   );
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrors("emails", async (req: NextRequest) => {
   const fields = (await req.json()) as EmailFields;
   const now = new Date().toISOString();
   const doc: EmailDocument = {
@@ -53,4 +58,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(doc, { status: 201 });
-}
+});

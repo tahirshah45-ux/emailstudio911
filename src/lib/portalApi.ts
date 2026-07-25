@@ -44,14 +44,42 @@ export class PortalApiError extends Error {
   }
 }
 
+/**
+ * Short-lived GET cache, keyed by URL. Mirrors src/lib/api.ts: it collapses
+ * duplicate reads of the same portal session (e.g. React Strict Mode
+ * double-invoking the load effect in development) into a single Firestore
+ * round trip, and clears on any mutation so post-write reads stay fresh.
+ */
+const GET_CACHE_TTL_MS = 15_000;
+const getCache = new Map<string, { expiresAt: number; promise: Promise<unknown> }>();
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...init });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const d = data as { error?: string; code?: string };
-    throw new PortalApiError(d.error ?? "Something went wrong. Please try again.", d.code ?? "internal");
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method !== "GET") {
+    getCache.clear();
+  } else {
+    const cached = getCache.get(url);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.promise as Promise<T>;
+    }
   }
-  return data as T;
+
+  const promise = (async () => {
+    const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...init });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      getCache.delete(url);
+      const d = data as { error?: string; code?: string };
+      throw new PortalApiError(d.error ?? "Something went wrong. Please try again.", d.code ?? "internal");
+    }
+    return data as T;
+  })();
+
+  if (method === "GET") {
+    getCache.set(url, { expiresAt: Date.now() + GET_CACHE_TTL_MS, promise });
+    promise.catch(() => getCache.delete(url));
+  }
+  return promise as Promise<T>;
 }
 
 export const portalApi = {
