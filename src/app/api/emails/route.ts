@@ -8,8 +8,13 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.toLowerCase().trim() ?? "";
   const projectId = req.nextUrl.searchParams.get("projectId");
-  let emails = await repo.list<EmailDocument>(COLLECTIONS.communications);
-  if (projectId) emails = emails.filter((e) => e.projectId === projectId);
+  // Scoped to one project: filter server-side so only that project's
+  // communications are ever read. Only the unscoped library view (no
+  // projectId — free-text search across every field) needs a full scan,
+  // since there is no full-text search index to query against instead.
+  let emails = projectId
+    ? await repo.listWhere<EmailDocument>(COLLECTIONS.communications, "projectId", projectId)
+    : await repo.list<EmailDocument>(COLLECTIONS.communications);
   if (q) {
     emails = emails.filter((e) =>
       [e.subject, e.documentTitle, e.clientName, e.company, e.projectName, e.referenceNumber, e.status]

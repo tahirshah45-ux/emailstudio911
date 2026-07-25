@@ -25,4 +25,5 @@ export const COMPANY = {
   name: "911 Makers",
   division: "Web Solutions & AI Automation Division",
   tagline: "NINE ONE ONE MAKERS",
+  logoUrl: "https://i.ibb.co/twq99gs1/911-MAKERS.png",
 } as const;

@@ -2,22 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { PROJECT_STAGES } from "@/lib/domain/stages";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, newId, repo } from "@/lib/store";
-import type { EmailDocument, Project } from "@/lib/types";
+import type { Project } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const [projects, emails] = await Promise.all([
-    repo.list<Project>(COLLECTIONS.projects),
-    repo.list<EmailDocument>(COLLECTIONS.communications),
-  ]);
-  const withCounts = projects
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .map((p) => ({
-      ...p,
-      communicationCount: emails.filter((e) => e.projectId === p.id).length,
-    }));
-  return NextResponse.json(withCounts);
+  try {
+    const projects = await repo.list<Project>(COLLECTIONS.projects);
+    const sorted = projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    // Per-project counts via a Firestore aggregation query (count()) rather
+    // than reading the entire communications collection and filtering in
+    // memory — an aggregate count is billed at a small fraction of a full
+    // document read and its cost doesn't grow with the size of the
+    // communications collection.
+    const withCounts = await Promise.all(
+      sorted.map(async (p) => ({
+        ...p,
+        communicationCount: await repo.count(COLLECTIONS.communications, "projectId", p.id),
+      }))
+    );
+    return NextResponse.json(withCounts);
+  } catch (err: unknown) {
+    // Never let a Firestore/read failure render as "no projects" — the
+    // dashboard must be able to tell a fetch error apart from a genuinely
+    // empty collection, so this always surfaces as a diagnosable error.
+    const message = err instanceof Error ? err.message : "Failed to load projects.";
+    console.error("GET /api/projects failed:", err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
