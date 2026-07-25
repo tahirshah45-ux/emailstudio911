@@ -12,6 +12,11 @@ export const jsonRepo: Repository = {
     return readCollection<T>(collection);
   },
 
+  async query<T extends Identifiable>(collection: string, field: string, value: string): Promise<T[]> {
+    const items = await readCollection<T>(collection);
+    return items.filter((i) => (i as unknown as Record<string, unknown>)[field] === value);
+  },
+
   async get<T extends Identifiable>(collection: string, id: string): Promise<T | null> {
     const items = await readCollection<T>(collection);
     return items.find((i) => i.id === id) ?? null;

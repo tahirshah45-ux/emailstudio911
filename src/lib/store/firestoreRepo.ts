@@ -4,7 +4,9 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import type { Identifiable, Repository } from "./repository";
@@ -26,6 +28,11 @@ function sanitize<T>(value: T): T {
 export const firestoreRepo: Repository = {
   async list<T extends Identifiable>(name: string): Promise<T[]> {
     const snap = await getDocs(collection(getDb(), name));
+    return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
+  },
+
+  async query<T extends Identifiable>(name: string, field: string, value: string): Promise<T[]> {
+    const snap = await getDocs(query(collection(getDb(), name), where(field, "==", value)));
     return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
   },
 

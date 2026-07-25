@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, newId, repo } from "@/lib/store";
 import type { EmailDocument } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiErrors("emails:duplicate", async (_req: NextRequest, { params }: { params: { id: string } }) => {
   const source = await repo.get<EmailDocument>(COLLECTIONS.communications, params.id);
   if (!source) return NextResponse.json({ error: "Email not found." }, { status: 404 });
 
@@ -30,4 +31,4 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   }
 
   return NextResponse.json(copy, { status: 201 });
-}
+});

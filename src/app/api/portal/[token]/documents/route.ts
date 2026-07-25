@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiErrorResponse } from "@/lib/apiErrors";
 import { registerDocument, PortalError } from "@/lib/services/portalService";
 
 export const dynamic = "force-dynamic";
@@ -51,10 +52,6 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
     if (err instanceof PortalError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.httpStatus });
     }
-    console.error("[portal:register]", err);
-    return NextResponse.json(
-      { error: "The file could not be saved. Please try again.", code: "internal" },
-      { status: 500 }
-    );
+    return apiErrorResponse(err, "portal:register");
   }
 }

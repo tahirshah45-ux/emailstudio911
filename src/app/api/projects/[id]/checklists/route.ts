@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, newId, repo } from "@/lib/store";
 import type { Checklist, ChecklistItem, Project } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const checklists = await repo.list<Checklist>(COLLECTIONS.checklists);
-  return NextResponse.json(
-    checklists
-      .filter((c) => c.projectId === params.id)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-  );
-}
+export const GET = withApiErrors("projects:checklists", async (_req: NextRequest, { params }: { params: { id: string } }) => {
+  const checklists = await repo.query<Checklist>(COLLECTIONS.checklists, "projectId", params.id);
+  return NextResponse.json(checklists.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+});
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiErrors("projects:checklists", async (req: NextRequest, { params }: { params: { id: string } }) => {
   const body = (await req.json()) as { name?: string; items?: string[] };
   if (!body.name?.trim()) {
     return NextResponse.json({ error: "Checklist name is required." }, { status: 400 });
@@ -39,4 +36,4 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await repo.set(COLLECTIONS.checklists, checklist.id, checklist);
   await addEvent(project.id, "checklist_added", `Checklist added: "${checklist.name}".`);
   return NextResponse.json(checklist, { status: 201 });
-}
+});

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, repo } from "@/lib/store";
 import type { Project } from "@/lib/types";
@@ -6,7 +7,7 @@ import type { Project } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 /** Adds a manual note to the project timeline (e.g. "Client confirmed by phone"). */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiErrors("projects:events", async (req: NextRequest, { params }: { params: { id: string } }) => {
   const body = (await req.json()) as { description?: string };
   if (!body.description?.trim()) {
     return NextResponse.json({ error: "Note text is required." }, { status: 400 });
@@ -17,4 +18,4 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
   const event = await addEvent(params.id, "note", body.description.trim());
   return NextResponse.json(event, { status: 201 });
-}
+});

@@ -16,16 +16,49 @@ import type {
 
 /** Typed client-side wrappers for the internal REST API. */
 
+/**
+ * Short-lived GET cache, keyed by URL.
+ *
+ * Firestore reads are billed per document, so re-fetching the same list
+ * (e.g. because a component re-rendered, React Strict Mode invoked an
+ * effect twice, or the user quickly navigated back and forth) burns quota
+ * for no reason. Storing the in-flight/settled promise means duplicate
+ * calls for the same URL within the TTL window share one network+Firestore
+ * round trip instead of issuing their own. Any write (POST/PUT/DELETE)
+ * clears the cache immediately so reads after a mutation are always fresh.
+ */
+const GET_CACHE_TTL_MS = 15_000;
+const getCache = new Map<string, { expiresAt: number; promise: Promise<unknown> }>();
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method !== "GET") {
+    getCache.clear();
+  } else {
+    const cached = getCache.get(url);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.promise as Promise<T>;
+    }
   }
-  return data as T;
+
+  const promise = (async () => {
+    const res = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      ...init,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      getCache.delete(url);
+      throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
+    }
+    return data as T;
+  })();
+
+  if (method === "GET") {
+    getCache.set(url, { expiresAt: Date.now() + GET_CACHE_TTL_MS, promise });
+    promise.catch(() => getCache.delete(url));
+  }
+  return promise as Promise<T>;
 }
 
 export type EmailListItem = Omit<EmailDocument, "contentHtml" | "history"> & {

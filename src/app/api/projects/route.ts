@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { PROJECT_STAGES } from "@/lib/domain/stages";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, newId, repo } from "@/lib/store";
@@ -6,7 +7,7 @@ import type { EmailDocument, Project } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiErrors("projects", async () => {
   const [projects, emails] = await Promise.all([
     repo.list<Project>(COLLECTIONS.projects),
     repo.list<EmailDocument>(COLLECTIONS.communications),
@@ -18,9 +19,9 @@ export async function GET() {
       communicationCount: emails.filter((e) => e.projectId === p.id).length,
     }));
   return NextResponse.json(withCounts);
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrors("projects", async (req: NextRequest) => {
   const body = (await req.json()) as Partial<Project>;
   if (!body.name?.trim()) {
     return NextResponse.json({ error: "Project name is required." }, { status: 400 });
@@ -48,4 +49,4 @@ export async function POST(req: NextRequest) {
   await repo.set(COLLECTIONS.projects, project.id, project);
   await addEvent(project.id, "project_created", `Project "${project.name}" created (${project.referenceNumber}).`);
   return NextResponse.json(project, { status: 201 });
-}
+});

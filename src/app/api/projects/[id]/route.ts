@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { addEvent, eventsForProject } from "@/lib/store/events";
 import { COLLECTIONS, repo } from "@/lib/store";
 import type { Checklist, EmailDocument, Project } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withApiErrors("projects", async (_req: NextRequest, { params }: { params: { id: string } }) => {
   const project = await repo.get<Project>(COLLECTIONS.projects, params.id);
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
 
-  const [events, emails, allChecklists] = await Promise.all([
+  const [events, emails, projectChecklists] = await Promise.all([
     eventsForProject(project.id),
-    repo.list<EmailDocument>(COLLECTIONS.communications),
-    repo.list<Checklist>(COLLECTIONS.checklists),
+    repo.query<EmailDocument>(COLLECTIONS.communications, "projectId", project.id),
+    repo.query<Checklist>(COLLECTIONS.checklists, "projectId", project.id),
   ]);
 
   const communications = emails
-    .filter((e) => e.projectId === project.id)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .map(({ contentHtml, history, ...rest }) => ({
       ...rest,
@@ -26,14 +26,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       historyCount: history?.length ?? 0,
     }));
 
-  const checklists = allChecklists
-    .filter((c) => c.projectId === project.id)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const checklists = projectChecklists.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   return NextResponse.json({ project, events, communications, checklists });
-}
+});
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export const PUT = withApiErrors("projects", async (req: NextRequest, { params }: { params: { id: string } }) => {
   const body = (await req.json()) as Partial<Project>;
   const prev = await repo.get<Project>(COLLECTIONS.projects, params.id);
   if (!prev) return NextResponse.json({ error: "Project not found." }, { status: 404 });
@@ -63,11 +61,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 
   return NextResponse.json(next);
-}
+});
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export const DELETE = withApiErrors("projects", async (_req: NextRequest, { params }: { params: { id: string } }) => {
   const project = await repo.get<Project>(COLLECTIONS.projects, params.id);
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
   await repo.remove(COLLECTIONS.projects, params.id);
   return NextResponse.json({ ok: true });
-}
+});

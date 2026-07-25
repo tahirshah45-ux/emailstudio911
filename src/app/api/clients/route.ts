@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withApiErrors } from "@/lib/apiErrors";
 import { COLLECTIONS, newId, repo } from "@/lib/store";
 import type { Client } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export const GET = withApiErrors("clients", async () => {
   const clients = await repo.list<Client>(COLLECTIONS.clients);
   return NextResponse.json(clients.sort((a, b) => a.name.localeCompare(b.name)));
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withApiErrors("clients", async (req: NextRequest) => {
   const body = (await req.json()) as Partial<Client>;
   if (!body.name?.trim()) {
     return NextResponse.json({ error: "Client name is required." }, { status: 400 });
@@ -25,4 +26,4 @@ export async function POST(req: NextRequest) {
   };
   await repo.set(COLLECTIONS.clients, client.id, client);
   return NextResponse.json(client, { status: 201 });
-}
+});

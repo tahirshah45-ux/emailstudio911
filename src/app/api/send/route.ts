@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { apiErrorResponse, isQuotaExceededError } from "@/lib/apiErrors";
 import { addEvent } from "@/lib/store/events";
 import { COLLECTIONS, repo } from "@/lib/store";
 import type { AppSettings, EmailDocument } from "@/lib/types";
@@ -134,6 +135,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, messageId: info.messageId });
   } catch (err: unknown) {
+    if (isQuotaExceededError(err)) return apiErrorResponse(err, "send");
+    console.error("[api:send]", err);
     const message = err instanceof Error ? err.message : "Failed to send email.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
